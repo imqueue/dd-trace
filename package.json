@@ -1,6 +1,6 @@
 {
   "name": "@imqueue/dd-trace",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Integration package with Datadog tracing for @imqueue",
   "keywords": [
     "dd-trace",
