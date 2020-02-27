@@ -74,6 +74,14 @@ const beforeCall: BeforeCall = async function(
     tracer.inject(span, formats.TEXT_MAP, req.metadata.clientSpan);
 
     (req as any).span = span;
+
+    return new Promise(resolve => {
+        try {
+            tracer.scope().activate(span, resolve);
+        } catch (err) {
+            resolve();
+        }
+    });
 };
 
 /**

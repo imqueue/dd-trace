@@ -81,7 +81,7 @@ const beforeCall: BeforeCall = async function(
         } catch (err) { /* ignore */ }
     }
 
-    (req as any).span = tracer.startSpan('imq.response', Object.assign({
+    const span = tracer.startSpan('imq.response', Object.assign({
         tags: {
             [tags.SPAN_KIND]: 'server',
             'resource.name': `${this.name}.${req.method}`,
@@ -90,6 +90,16 @@ const beforeCall: BeforeCall = async function(
             'component': 'imq',
         },
     }, childOf ? { childOf } : {}));
+
+    (req as any).span = span;
+
+    return new Promise(resolve => {
+        try {
+            tracer.scope().activate(span, resolve);
+        } catch (err) {
+            resolve();
+        }
+    });
 };
 
 function getRedisSpan() {
