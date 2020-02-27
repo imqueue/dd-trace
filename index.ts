@@ -13,6 +13,7 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+import redis from './src/redis';
 const plugins = require('dd-trace/packages/dd-trace/src/plugins');
 
 import plugin from './src';
@@ -21,7 +22,11 @@ import * as Tags from 'dd-trace/ext/tags';
 import * as path from 'path';
 
 // Add imq plugin for dd-trace to process
-Object.assign(plugins, { 'imq': plugin });
+// and override redis plugin
+Object.assign(plugins, {
+    'redis': redis,
+    'imq': plugin,
+});
 
 // noinspection JSUnusedGlobalSymbols
 export default tracer;
