@@ -92,7 +92,7 @@ const beforeCall: BeforeCall = async function(
     }, childOf ? { childOf } : {}));
 
     (req as any).span = span;
-    (tracer.scope() || {} as any)._current = span;
+    (tracer.scope() as any || {} as any)._current = span;
 };
 
 function getRedisSpan() {
