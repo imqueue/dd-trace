@@ -37,8 +37,8 @@
   },
   "homepage": "https://github.com/imqueue/dd-trace",
   "dependencies": {
-    "@imqueue/core": "^1.7.0",
-    "@imqueue/rpc": "^1.10.4",
+    "@imqueue/core": "^1.7.1",
+    "@imqueue/rpc": "^1.10.5",
     "@types/node": "^13.7.6",
     "dd-trace": "^0.18.1"
   },
