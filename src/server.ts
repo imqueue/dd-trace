@@ -20,7 +20,7 @@ import {
     IMQAfterCall,
     IMQServiceOptions,
 } from '@imqueue/rpc';
-import tracer, { Tracer } from 'dd-trace';
+import tracer, { Span, Tracer } from 'dd-trace';
 import * as tags from 'dd-trace/ext/tags';
 import * as formats from 'dd-trace/ext/formats';
 
@@ -58,11 +58,28 @@ const beforeCall: BeforeCall = async function(
     };
 
     const clientSpanMeta = (req.metadata || { clientSpan: null }).clientSpan;
-    const spans = (tracer.scope() as any)._spans;
-    const keys = Object.keys(spans).filter(key => spans[key]);
-    const childOf = clientSpanMeta
+    const redisSpan = getRedisSpan();
+
+    let childOf = clientSpanMeta
         ? tracer.extract(formats.TEXT_MAP, clientSpanMeta)
-        : spans[keys[keys.length - 1]];
+        : redisSpan;
+
+    // noinspection TypeScriptUnresolvedVariable
+    if (
+        redisSpan && childOf &&
+        (childOf as any)._spanId &&
+        redisSpan !== childOf
+    ) {
+        // noinspection TypeScriptUnresolvedVariable
+        (redisSpan as any)._spanContext._parentId = (childOf as any)._spanId;
+        // noinspection TypeScriptUnresolvedVariable
+        (redisSpan as any)._spanContext._traceId = (childOf as any)._traceId;
+
+        try {
+            redisSpan.finish();
+            childOf = redisSpan;
+        } catch (err) { /* ignore */ }
+    }
 
     (req as any).span = tracer.startSpan('imq.response', Object.assign({
         tags: {
@@ -75,6 +92,24 @@ const beforeCall: BeforeCall = async function(
     }, childOf ? { childOf } : {}));
 };
 
+function getRedisSpan() {
+    const spans = (tracer.scope() as any)._spans;
+    const keys = Object.keys(spans).filter(key => spans[key]);
+
+    let redisSpan: Span | undefined;
+
+    for (let i = keys.length - 1; i >= 0; i--) {
+        const span: any = spans[keys[i]];
+
+        // noinspection TypeScriptUnresolvedVariable
+        if (span._spanContext._name === 'redis.command') {
+            redisSpan = span as Span;
+        }
+    }
+
+    return redisSpan;
+}
+
 /**
  * After call hook definition for @imqueue service
  *
@@ -85,7 +120,9 @@ const afterCall: AfterCall = async function(
     this: IMQService,
     req: IMQRPCRequest,
 ): Promise<void> {
-    (req as any).span.finish();
+    const span = (req as any).span;
+
+    span && span.finish();
 };
 
 const server = [{

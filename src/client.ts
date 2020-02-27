@@ -86,7 +86,9 @@ const afterCall: AfterCall = async function(
     this: IMQClient,
     req: IMQRPCRequest,
 ): Promise<void> {
-    (req as any).span.finish();
+    const span = (req as any).span;
+
+    span && span.finish();
 };
 
 const client = [{
