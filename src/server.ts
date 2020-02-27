@@ -92,14 +92,7 @@ const beforeCall: BeforeCall = async function(
     }, childOf ? { childOf } : {}));
 
     (req as any).span = span;
-
-    return new Promise(resolve => {
-        try {
-            tracer.scope().activate(span, resolve);
-        } catch (err) {
-            resolve();
-        }
-    });
+    (tracer.scope() || {} as any)._current = span;
 };
 
 function getRedisSpan() {
