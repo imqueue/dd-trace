@@ -38,6 +38,17 @@ from it. To learn more about `dd-trace` API and features, follow this
 
 ### Extended API
 
+This module also provides possibility to disable Datadog self-traces (enabled
+by default as standard `dd-trace` behavior), using environment configuration
+variable:
+
+~~~bash
+export DISABLE_DD_SELF_TRACES=1
+~~~
+
+This option will disable datadog agent to trace it's own HTTP calls about
+traces, but still keeping http/https requests to other domains to be traced.
+
 Withing the package `@imqueue/dd-trace` provides also some valuable
 functions, giving the ability to instrument and send traces manually inside
 your code.
