@@ -93,7 +93,9 @@ const beforeCall: BeforeCall = async function(
 
     (req as any).span = span;
 
-    const scope = tracer.scope();
+    const scope: any = tracer.scope();
+
+    scope._current = span;
 
     return new Promise(resolve => scope.activate(span, resolve));
 };
