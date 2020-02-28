@@ -92,7 +92,10 @@ const beforeCall: BeforeCall = async function(
     }, childOf ? { childOf } : {}));
 
     (req as any).span = span;
-    (tracer.scope() as any || {} as any)._current = span;
+
+    const scope = tracer.scope();
+
+    return new Promise(resolve => scope.activate(span, resolve));
 };
 
 function getRedisSpan() {
@@ -124,8 +127,11 @@ const afterCall: AfterCall = async function(
     req: IMQRPCRequest,
 ): Promise<void> {
     const span = (req as any).span;
+    const scope: any = tracer.scope();
 
     span && span.finish();
+    // noinspection TypeScriptUnresolvedFunction,TypeScriptUnresolvedVariable
+    scope && scope._exit && scope._exit(span);
 };
 
 const server = [{
