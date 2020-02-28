@@ -28,6 +28,13 @@ Object.assign(plugins, {
     'imq': plugin,
 });
 
+const nativeInit = tracer.init;
+
+tracer.init = function(...args: any[]): any {
+    nativeInit.apply(this, args);
+    require('./src/http').fixTraces();
+};
+
 // noinspection JSUnusedGlobalSymbols
 export default tracer;
 export * from 'dd-trace';
