@@ -23,8 +23,8 @@ import {
 } from './index';
 
 export const targets: DDPatchTarget[] = [{
-    object: net,
-    methodNames: ['get', 'request'],
+    object: net.Socket.prototype,
+    methodNames: ['connect'],
 }];
 
 function checkPatch(
