@@ -37,6 +37,7 @@ tracer.init = function(...args: any[]): any {
 
 // noinspection JSUnusedGlobalSymbols
 export default tracer;
+// @ts-ignore
 export * from 'dd-trace';
 
 export interface TraceTags {
