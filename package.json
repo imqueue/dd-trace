@@ -35,7 +35,7 @@
   "bugs": {
     "url": "https://github.com/imqueue/dd-trace/issues"
   },
-  "homepage": "https://github.com/imqueue/dd-trace",
+  "homepage": "https://imqueue.org/",
   "dependencies": {
     "@imqueue/core": "^1.15.0",
     "@imqueue/rpc": "^1.17.0",
