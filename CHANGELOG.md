@@ -4,7 +4,7 @@ Notable changes to `@imqueue/dd-trace`.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2026-07-26
+## [3.0.0] - 2026-07-26
 
 Every dependency moved to its latest release, which turned out to require
 rebuilding how this package hooks into the tracer: it was written against
