@@ -13,3 +13,29 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
+import { IMQ_COMPONENT } from './channels.js';
+import { ImqClientPlugin } from './client.js';
+import { CompositePlugin } from './internals.js';
+import { ImqServerPlugin } from './server.js';
+
+/**
+ * The `imq` integration, grouping both halves of an RPC call under a single
+ * name so that they share configuration and can be switched independently:
+ *
+ * ~~~typescript
+ * tracer.use('imq', { client: false });    // trace incoming calls only
+ * tracer.use('imq', { service: 'my-api' }) // applies to both halves
+ * ~~~
+ */
+export class ImqPlugin extends CompositePlugin {
+    public static id = IMQ_COMPONENT;
+
+    public static get plugins() {
+        return {
+            client: ImqClientPlugin,
+            server: ImqServerPlugin,
+        };
+    }
+}
+
+export default ImqPlugin;

@@ -1,19 +1,22 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "node18",
     "declaration": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "removeComments": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "moduleResolution": "node",
     "sourceMap": true,
     "inlineSources": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "esModuleInterop": false,
+    "esModuleInterop": true,
     "resolveJsonModule": true,
+    "types": [
+      "node",
+      "mocha"
+    ],
     "target": "esnext",
     "lib": [
       "dom",

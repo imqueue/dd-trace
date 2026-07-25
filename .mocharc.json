@@ -1,0 +1,9 @@
+{
+  "node-option": [
+    "enable-source-maps"
+  ],
+  "spec": "test/**/*.spec.js",
+  "recursive": true,
+  "full-trace": true,
+  "timeout": 10000
+}

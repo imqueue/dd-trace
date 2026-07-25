@@ -13,162 +13,77 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import {
-    IMQService,
-    IMQRPCRequest,
-    IMQBeforeCall,
-    IMQAfterCall,
-    IMQServiceOptions,
-} from '@imqueue/rpc';
-import tracer, { Span, Tracer } from 'dd-trace';
-import * as tags from 'dd-trace/ext/tags';
-import * as formats from 'dd-trace/ext/formats';
-
-interface BeforeCall extends IMQBeforeCall<IMQService> {
-    __datadog_patched?: boolean;
-}
-
-interface AfterCall extends IMQAfterCall<IMQService> {
-    __datadog_patched?: boolean;
-}
-
-interface ServiceOptions extends IMQServiceOptions {
-    afterCall: AfterCall;
-    beforeCall: BeforeCall;
-}
-
-type ServiceModule = {
-    DEFAULT_IMQ_SERVICE_OPTIONS: ServiceOptions;
-} | any;
+import formats from 'dd-trace/ext/formats.js';
+import tags from 'dd-trace/ext/tags.js';
+import { IMQ_COMPONENT, ImqCallContext, SERVER_OPERATION } from './channels.js';
+import { TracingPlugin } from './internals.js';
 
 /**
- * Before call hook definition for @imqueue service
+ * Traces incoming @imqueue RPC calls.
  *
- * @param {IMQRPCRequest} req - imq request
- * @return Promise<void>
+ * Subscribes to `apm:imq:response:{start,error,finish}` — the channels the
+ * instrumentation in `./instrumentation` publishes from the service's
+ * `beforeCall`/`afterCall` hooks.
  */
-const beforeCall: BeforeCall = async function(
-    this: IMQService,
-    req: IMQRPCRequest,
-): Promise<void> {
-    (req as any).toJSON = () => {
-        const copy = Object.assign({}, req);
-        delete copy.span;
-        return copy;
-    };
+export class ImqServerPlugin extends TracingPlugin {
+    public static id = IMQ_COMPONENT;
+    public static component = IMQ_COMPONENT;
+    public static operation = SERVER_OPERATION;
+    public static kind = 'server';
+    public static type = 'messaging';
 
-    const clientSpanMeta = (req.metadata || { clientSpan: null }).clientSpan;
-    const redisSpan = getRedisSpan();
+    /**
+     * Starts the span for an incoming call, continuing the caller's trace when
+     * the request carries a propagated context.
+     *
+     * @param {ImqCallContext} ctx - call being handled
+     */
+    public start(ctx: ImqCallContext): void {
+        const childOf = ctx.carrier
+            ? this.tracer.extract(formats.TEXT_MAP, ctx.carrier)
+            : null;
 
-    let childOf = clientSpanMeta
-        ? tracer.extract(formats.TEXT_MAP, clientSpanMeta)
-        : redisSpan;
+        // `childOf` is always passed, `null` included: handling an incoming
+        // call starts a trace, so when the caller propagated nothing this
+        // span must be a root rather than silently attach to whatever span
+        // happens to be active — which, since spans are entered into the
+        // async-local store below, would chain unrelated calls into one trace.
+        //
+        // `true` enters the span into that store, so spans created while the
+        // service method runs become its children.
+        const span = this.startSpan('imq.response', {
+            service: ctx.serviceName,
+            resource: `${ctx.serviceName}.${ctx.method}`,
+            kind: ImqServerPlugin.kind,
+            type: ImqServerPlugin.type,
+            childOf,
+            meta: {
+                [tags.SPAN_KIND]: ImqServerPlugin.kind,
+                ...(ctx.from ? { 'imq.client': ctx.from } : {}),
+            },
+        }, true);
 
-    // noinspection TypeScriptUnresolvedVariable
-    if (
-        redisSpan && childOf &&
-        (childOf as any)._spanId &&
-        redisSpan !== childOf
-    ) {
-        // noinspection TypeScriptUnresolvedVariable
-        (redisSpan as any)._spanContext._parentId = (childOf as any)._spanId;
-        // noinspection TypeScriptUnresolvedVariable
-        (redisSpan as any)._spanContext._traceId = (childOf as any)._traceId;
-
-        try {
-            redisSpan.finish();
-            childOf = redisSpan;
-        } catch (err) { /* ignore */ }
+        ctx.span = span;
     }
 
-    const span = tracer.startSpan('imq.response', Object.assign({
-        tags: {
-            [tags.SPAN_KIND]: 'server',
-            'resource.name': `${this.name}.${req.method}`,
-            'service.name': this.name,
-            'imq.client': req.from,
-            'component': 'imq',
-        },
-    }, childOf ? { childOf } : {}));
-
-    (req as any).span = span;
-
-    const scope: any = tracer.scope();
-
-    scope._current = span;
-
-    return new Promise(resolve => scope.activate(span, resolve));
-};
-
-function getRedisSpan() {
-    const spans = (tracer.scope() as any)._spans;
-    const keys = Object.keys(spans).filter(key => spans[key]);
-
-    let redisSpan: Span | undefined;
-
-    for (let i = keys.length - 1; i >= 0; i--) {
-        const span: any = spans[keys[i]];
-
-        // noinspection TypeScriptUnresolvedVariable
-        if (span._spanContext._name === 'redis.command') {
-            redisSpan = span as Span;
-        }
+    /**
+     * Marks the span as failed. The span itself is finished by `finish()`,
+     * which the instrumentation always publishes.
+     *
+     * @param {ImqCallContext} ctx - call that failed
+     */
+    public error(ctx: ImqCallContext): void {
+        ctx.span?.setTag(tags.ERROR, ctx.error);
     }
 
-    return redisSpan;
+    /**
+     * Finishes the span of a handled call.
+     *
+     * @param {ImqCallContext} ctx - call that completed
+     */
+    public finish(ctx: ImqCallContext): void {
+        ctx.span?.finish();
+    }
 }
 
-/**
- * After call hook definition for @imqueue service
- *
- * @param {IMQRPCRequest} req - imq request
- * @return {Promise<void>}
- */
-const afterCall: AfterCall = async function(
-    this: IMQService,
-    req: IMQRPCRequest,
-): Promise<void> {
-    const span = (req as any).span;
-    const scope: any = tracer.scope();
-
-    span && span.finish();
-    // noinspection TypeScriptUnresolvedFunction,TypeScriptUnresolvedVariable
-    scope && scope._exit && scope._exit(span);
-};
-
-const server = [{
-    name: '@imqueue/rpc',
-    versions: ['>=1.10'],
-    file: 'src/IMQRPCOptions.js',
-    patch(pkg: ServiceModule, tracer: Tracer, config: any) {
-        if (config.client === false) {
-            return ;
-        }
-
-        beforeCall.__datadog_patched = true;
-        afterCall.__datadog_patched = true;
-
-        // noinspection JSUnusedGlobalSymbols
-        Object.assign(
-            pkg.DEFAULT_IMQ_SERVICE_OPTIONS,
-            { beforeCall, afterCall },
-        );
-
-        return pkg;
-    },
-    unpatch(pkg: ServiceModule) {
-        const { beforeCall, afterCall } = pkg.DEFAULT_IMQ_SERVICE_OPTIONS;
-
-        if (beforeCall && beforeCall.__datadog_patched) {
-            delete pkg.DEFAULT_IMQ_SERVICE_OPTIONS.beforeCall;
-        }
-
-        if (afterCall && afterCall.__datadog_patched) {
-            delete pkg.DEFAULT_IMQ_SERVICE_OPTIONS.afterCall;
-        }
-
-        return pkg;
-    },
-}];
-
-export default server;
+export default ImqServerPlugin;

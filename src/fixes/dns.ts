@@ -13,13 +13,13 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import * as dns from 'dns';
+import * as dns from 'node:dns';
 import {
     AnyFunction,
     DDPatchTarget,
     DDRePatchImplementation,
     DDWrappedMethod, toSkip,
-} from './index';
+} from './index.js';
 
 export const targets: DDPatchTarget[] = [{
     object: dns,

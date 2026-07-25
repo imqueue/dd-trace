@@ -13,117 +13,71 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import {
-    IMQClient,
-    IMQRPCRequest,
-    IMQClientOptions,
-    IMQAfterCall,
-    IMQBeforeCall,
-} from '@imqueue/rpc';
-import tracer, { Tracer } from 'dd-trace';
-import * as tags from 'dd-trace/ext/tags';
-import * as formats from 'dd-trace/ext/formats';
-
-interface BeforeCall extends IMQBeforeCall<IMQClient> {
-    __datadog_patched?: boolean;
-}
-
-interface AfterCall extends IMQAfterCall<IMQClient> {
-    __datadog_patched?: boolean;
-}
-
-interface ClientOptions extends IMQClientOptions {
-    afterCall: AfterCall;
-    beforeCall: BeforeCall;
-}
-
-type ClientModule = {
-    DEFAULT_IMQ_CLIENT_OPTIONS: ClientOptions;
-} | any;
+import formats from 'dd-trace/ext/formats.js';
+import tags from 'dd-trace/ext/tags.js';
+import { CLIENT_OPERATION, IMQ_COMPONENT, ImqCallContext } from './channels.js';
+import { TracingPlugin } from './internals.js';
 
 /**
- * Before call hook definition for @imqueue client
+ * Traces outgoing @imqueue RPC calls.
  *
- * @param {IMQRPCRequest} req - imq request
- * @return Promise<void>
+ * Subscribes to `apm:imq:request:{start,error,finish}` — the channels the
+ * instrumentation in `./instrumentation` publishes from the client's
+ * `beforeCall`/`afterCall` hooks.
  */
-const beforeCall: BeforeCall = async function(
-    this: IMQClient,
-    req: IMQRPCRequest
-): Promise<void> {
-    (req as any).toJSON = () => {
-        const copy = Object.assign({}, req);
-        delete copy.span;
-        return copy;
-    };
+export class ImqClientPlugin extends TracingPlugin {
+    public static id = IMQ_COMPONENT;
+    public static component = IMQ_COMPONENT;
+    public static operation = CLIENT_OPERATION;
+    public static kind = 'client';
+    public static type = 'messaging';
 
-    const childOf = tracer.scope().active();
-    const span = tracer.startSpan('imq.request', Object.assign({
-        tags: {
-            [tags.SPAN_KIND]: 'client',
-            'resource.name': `${this.serviceName}.${req.method}`,
-            'service.name': this.serviceName,
-            'imq.client': req.from,
-            'component': 'imq',
-        },
-    }, childOf ? { childOf } : {}));
+    /**
+     * Starts the span for an outgoing call and injects the trace context into
+     * the carrier so the handling service can continue the trace.
+     *
+     * @param {ImqCallContext} ctx - call being started
+     */
+    public start(ctx: ImqCallContext): void {
+        // `false` keeps the span out of the async-local store on purpose: a
+        // client span must not become the ambient parent of whatever the
+        // caller does next while it waits for the response.
+        const span = this.startSpan('imq.request', {
+            service: ctx.serviceName,
+            resource: `${ctx.serviceName}.${ctx.method}`,
+            kind: ImqClientPlugin.kind,
+            type: ImqClientPlugin.type,
+            meta: {
+                [tags.SPAN_KIND]: ImqClientPlugin.kind,
+                ...(ctx.from ? { 'imq.client': ctx.from } : {}),
+            },
+        }, false);
 
-    req.metadata = req.metadata || {};
-    req.metadata.clientSpan = {};
+        ctx.span = span;
 
-    tracer.inject(span, formats.TEXT_MAP, req.metadata.clientSpan);
-
-    (req as any).span = span;
-};
-
-/**
- * After call hook definition for @imqueue client
- *
- * @param {IMQRPCRequest} req - imq request
- * @return {Promise<void>}
- */
-const afterCall: AfterCall = async function(
-    this: IMQClient,
-    req: IMQRPCRequest,
-): Promise<void> {
-    const span = (req as any).span;
-
-    span && span.finish();
-};
-
-const client = [{
-    name: '@imqueue/rpc',
-    versions: ['>=1.10'],
-    file: 'src/IMQRPCOptions.js',
-    patch(pkg: ClientModule, tracer: Tracer, config: any) {
-        if (config.client === false) {
-            return ;
+        if (ctx.carrier) {
+            this.tracer.inject(span, formats.TEXT_MAP, ctx.carrier);
         }
+    }
 
-        beforeCall.__datadog_patched = true;
-        afterCall.__datadog_patched = true;
+    /**
+     * Marks the span as failed. The span itself is finished by `finish()`,
+     * which the instrumentation always publishes.
+     *
+     * @param {ImqCallContext} ctx - call that failed
+     */
+    public error(ctx: ImqCallContext): void {
+        ctx.span?.setTag(tags.ERROR, ctx.error);
+    }
 
-        // noinspection JSUnusedGlobalSymbols
-        Object.assign(
-            pkg.DEFAULT_IMQ_CLIENT_OPTIONS,
-            { beforeCall, afterCall },
-        );
+    /**
+     * Finishes the span of a completed call.
+     *
+     * @param {ImqCallContext} ctx - call that completed
+     */
+    public finish(ctx: ImqCallContext): void {
+        ctx.span?.finish();
+    }
+}
 
-        return pkg;
-    },
-    unpatch(pkg: ClientModule) {
-        const { beforeCall, afterCall } = pkg.DEFAULT_IMQ_CLIENT_OPTIONS;
-
-        if (beforeCall && beforeCall.__datadog_patched) {
-            delete pkg.DEFAULT_IMQ_CLIENT_OPTIONS.beforeCall;
-        }
-
-        if (afterCall && afterCall.__datadog_patched) {
-            delete pkg.DEFAULT_IMQ_CLIENT_OPTIONS.afterCall;
-        }
-
-        return pkg;
-    },
-}];
-
-export default client;
+export default ImqClientPlugin;

@@ -13,14 +13,14 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import * as net from 'net';
+import * as net from 'node:net';
 import {
     AnyFunction,
     DDPatchTarget,
     DDRePatchImplementation,
     DDWrappedMethod,
     toSkip,
-} from './index';
+} from './index.js';
 
 export const targets: DDPatchTarget[] = [{
     object: net.Socket.prototype,
@@ -32,8 +32,9 @@ function checkPatch(
     method: DDWrappedMethod & AnyFunction,
     original: AnyFunction,
 ): AnyFunction {
-    return function(...args: any[]) {
-        let [port, host] = args;
+    return function(this: any, ...args: any[]) {
+        const [port] = args;
+        let host = args[1];
 
         if (Object.prototype.toString.call(port) === '[object Object]') {
             // options passed

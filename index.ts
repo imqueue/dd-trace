@@ -13,31 +13,44 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import redis from './src/redis';
-const plugins = require('dd-trace/packages/dd-trace/src/plugins');
+import tracer, { Span, TracerOptions } from 'dd-trace';
+import Tags from 'dd-trace/ext/tags.js';
+import { createRequire } from 'node:module';
+import * as path from 'node:path';
+import { enablePlugin, instrument, registerPlugin } from './src/index.js';
+import { fixDDTraces } from './src/fixes/index.js';
 
-import plugin from './src';
-import tracer, { Span } from 'dd-trace';
-import * as Tags from 'dd-trace/ext/tags';
-import * as path from 'path';
+export * from './src/index.js';
 
-// Add imq plugin for dd-trace to process
-// and override redis plugin
-Object.assign(plugins, {
-    'redis': redis,
-    'imq': plugin,
-});
+// The plugin has to be in the tracer's registry before `init()` announces it.
+registerPlugin();
 
 const nativeInit = tracer.init;
 
-tracer.init = function(...args: any[]): any {
-    nativeInit.apply(this, args);
-    require('./src/fixes').fixDDTraces();
+/**
+ * `init()` is wrapped so that everything this package adds on top of dd-trace
+ * comes up with the tracer itself, keeping the documented two-line setup:
+ * enabling the `imq` integration, which the tracer ignores until it has a
+ * configuration, and applying the self-trace fixes.
+ */
+tracer.init = function(options?: TracerOptions): typeof tracer {
+    const result = nativeInit.call(this, options);
+
+    enablePlugin();
+    fixDDTraces();
+
+    return result;
 };
+
+// Installing the hooks does not depend on the tracer being initialized: the
+// channels they publish on have no subscribers until the plugin is enabled, and
+// @imqueue/rpc reads these options when a client or service is
+// constructed. Done at import time so it is in place whenever `init()` runs.
+await instrument();
 
 // noinspection JSUnusedGlobalSymbols
 export default tracer;
-// @ts-ignore
+// @ts-expect-error - re-exporting a CommonJS module's named exports
 export * from 'dd-trace';
 
 export interface TraceTags {
@@ -70,10 +83,7 @@ export function trace(name: string, tags?: TraceTags) {
         );
     }
 
-    const scope = tracer.scope();
-    const spans = (tracer.scope() as any)._spans;
-    const keys = Object.keys(spans).filter(key => spans[key]);
-    const childOf = scope.active() || spans[keys[keys.length - 1]];
+    const childOf = tracer.scope().active();
 
     traces[name] = tracer.startSpan(name, {
         ...(childOf ? { childOf } : {}),
@@ -112,8 +122,10 @@ const DEFAULT_TRACED_OPTIONS: TracedOptions = {
 let pkgName = '';
 
 try {
+    const require = createRequire(import.meta.url);
+
     pkgName = require(`${path.resolve('.')}${path.sep}package.json`).name;
-} catch (err) { /* ignore */ }
+} catch { /* the working directory may have no package.json */ }
 
 // noinspection JSUnusedGlobalSymbols
 /**
@@ -131,7 +143,7 @@ export function traced(options?: Partial<TracedOptions>) {
             {}, DEFAULT_TRACED_OPTIONS, options || {},
         );
 
-        descriptor.value = function<T>(...args: any[]) {
+        descriptor.value = function(this: any, ...args: any[]) {
             const className = this.constructor.name;
             const tags = Object.assign({
                 [Tags.SPAN_KIND]: opts.kind,
@@ -139,10 +151,7 @@ export function traced(options?: Partial<TracedOptions>) {
                 ...(pkgName ? { 'package.name': pkgName } : {}),
                 'component': 'imq',
             }, opts.tags || {});
-            const scope = tracer.scope();
-            const spans = (tracer.scope() as any)._spans;
-            const keys = Object.keys(spans).filter(key => spans[key]);
-            const childOf = scope.active() || spans[keys[keys.length - 1]];
+            const childOf = tracer.scope().active();
             const span = tracer.startSpan('method.call', {
                 tags, ...(childOf ? { childOf } : {}),
             });

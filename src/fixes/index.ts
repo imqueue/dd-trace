@@ -14,13 +14,17 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 export const DD_TRACE_AGENT_HOSTNAME: string =
-    process.env.DD_TRACE_AGENT_HOSTNAME + '';
+    process.env.DD_TRACE_AGENT_HOSTNAME || '';
 export const DISABLE_DD_SELF_TRACES: number =
     +(process.env.DISABLE_DD_SELF_TRACES || 0) || 0;
 const RX_DD_HOST = /datadoghq\.com/;
-const RX_DD_AGENT_HOST = new RegExp(
-    DD_TRACE_AGENT_HOSTNAME.replace(/\./, '\\.'),
-);
+// Every regexp metacharacter has to be escaped, not just the first dot, or a
+// hostname like `dd.agent.local` would also match `ddXagentXlocal`. When no
+// agent hostname is configured there is nothing to match against at all —
+// matching the literal string "undefined" would skip any URL containing it.
+const RX_DD_AGENT_HOST: RegExp | null = DD_TRACE_AGENT_HOSTNAME
+    ? new RegExp(DD_TRACE_AGENT_HOSTNAME.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    : null;
 
 export type AnyFunction = (...args: any[]) => any;
 export interface DDWrappedMethod {
@@ -38,7 +42,7 @@ export interface DDRePatchImplementation {
     (
         target: any,
         methodName: string,
-        method: DDWrappedMethod,
+        method: DDWrappedMethod & AnyFunction,
         original: AnyFunction,
     ): AnyFunction;
 }
@@ -72,12 +76,17 @@ export function fixTraces(
 }
 
 export function toSkip(hostOrUrl: string): boolean {
-    return RX_DD_HOST.test(hostOrUrl) || RX_DD_AGENT_HOST.test(hostOrUrl);
+    if (!hostOrUrl || typeof hostOrUrl !== 'string') {
+        return false;
+    }
+
+    return RX_DD_HOST.test(hostOrUrl) ||
+        (!!RX_DD_AGENT_HOST && RX_DD_AGENT_HOST.test(hostOrUrl));
 }
 
-import { targets as dnsTargets, patcher as dnsPatcher } from './dns';
-import { targets as netTargets, patcher as netPatcher } from './net';
-import { targets as httpTargets, patcher as httpPatcher } from './http';
+import { targets as dnsTargets, patcher as dnsPatcher } from './dns.js';
+import { targets as netTargets, patcher as netPatcher } from './net.js';
+import { targets as httpTargets, patcher as httpPatcher } from './http.js';
 
 export function fixDDTraces() {
     fixTraces(dnsTargets, dnsPatcher);

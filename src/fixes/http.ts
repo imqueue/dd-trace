@@ -13,15 +13,15 @@
  * OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-import * as http from 'http';
-import * as https from 'https';
+import * as http from 'node:http';
+import * as https from 'node:https';
 import {
     AnyFunction,
     DDPatchTarget,
     DDRePatchImplementation,
     DDWrappedMethod,
     toSkip,
-} from './index';
+} from './index.js';
 
 export const targets: DDPatchTarget[] = [{
     object: http,
@@ -36,11 +36,12 @@ function checkPatch(
     method: DDWrappedMethod & AnyFunction,
     original: AnyFunction,
 ): AnyFunction {
-    return function(...args: any[]) {
-        let [url, options] = args;
+    return function(this: any, ...args: any[]) {
+        let [url] = args;
 
         if (typeof url !== 'string') {
-            options = url;
+            const options = url;
+
             url = options.hostname || options.host;
         }
 

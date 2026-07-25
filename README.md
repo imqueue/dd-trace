@@ -20,6 +20,9 @@ As easy as:
 npm i --save @imqueue/dd-trace
 ~~~ 
 
+This package is an ES module, as is `@imqueue/rpc` from version 3 on, so it is
+imported and not `require`d. It needs `@imqueue/rpc` 3.x and `dd-trace` 6.x.
+
 ## Usage & API
 
 ### Importing, instantiation and connecting
@@ -35,6 +38,29 @@ export default tracer;
 This does not differ of original `dd-trace` and exposes the whole functionality
 from it. To learn more about `dd-trace` API and features, follow this
 [link](https://docs.datadoghq.com/tracing/setup/nodejs/).
+
+Importing this package installs the tracing hooks, and `init()` enables the
+`imq` integration. Both halves of a call are traced: `imq.request` on the
+calling side, `imq.response` on the handling side, and the two are linked into
+one trace through the request metadata. Every client and service created after
+`init()` is traced, with no change to application code.
+
+Either half can be switched off, and any `dd-trace` plugin option applies to
+both:
+
+~~~typescript
+tracer.use('imq', { client: false });     // trace incoming calls only
+tracer.use('imq', { service: 'my-api' }); // report both halves as `my-api`
+~~~
+
+### Tracing Redis
+
+Redis is traced by `dd-trace`'s own Redis integration. Earlier releases of this
+package replaced that integration to tag the @imqueue broker's connections with
+a `service.name` of `imq-broker-redis`; it targeted internals `dd-trace` no
+longer has, and since it replaced the built-in one, Redis ended up not being
+traced at all. It is gone — Redis spans now come from `dd-trace` itself, without
+that tag.
 
 ### Extended API
 
