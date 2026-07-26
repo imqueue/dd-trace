@@ -4,6 +4,25 @@ Notable changes to `@imqueue/dd-trace`.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-07-26
+
+A licensing correction only — no code changed, so 3.0.1 is functionally
+identical to 3.0.0.
+
+### Changed
+
+- **License: ISC → GPL-3.0-only.** This package was the last one still
+  declaring ISC after the framework-wide relicense, so it disagreed with the
+  rest of @imqueue, with imqueue.org (which states the whole framework is
+  GPL-3.0), and with its own `CONTRIBUTING.md` and `CONTRIBUTION-TERMS.md` —
+  both of which already told contributors their work stays available to everyone
+  under GPL-3.0. `package.json`, `LICENSE`, the README and the header of every
+  source file now say GPL-3.0-only, matching every sibling package.
+
+  If you consumed 3.0.0 or earlier under ISC terms, note that GPL-3.0's copyleft
+  applies from 3.0.1 on. A proprietary commercial license is available for
+  closed-source use — contact <support@imqueue.com>.
+
 ## [3.0.0] - 2026-07-26
 
 Every dependency moved to its latest release, which turned out to require
