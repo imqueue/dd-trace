@@ -30,7 +30,7 @@
     "help": "npm-scripts-help"
   },
   "author": "imqueue.com <support@imqueue.com>",
-  "license": "ISC",
+  "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
     "url": "git://github.com/imqueue/dd-trace.git"
