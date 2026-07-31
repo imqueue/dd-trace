@@ -31,6 +31,7 @@ import { ImqPlugin } from './plugin.js';
 export * from './channels.js';
 export * from './client.js';
 export * from './instrumentation.js';
+export * from './internals.js';
 export * from './plugin.js';
 export * from './server.js';
 
@@ -49,7 +50,12 @@ let instrumented = false;
  * Safe to call more than once, and safe to call before `tracer.init()` — the
  * tracer only instantiates the plugin once it has been configured.
  *
- * @return {boolean} - whether registration happened on this call
+ * @remarks
+ * Called for you when this package is imported, so applications never need it.
+ * It is exported for tests and for a host that builds the tracer by hand.
+ *
+ * @returns `true` if this call performed the registration, `false` if it had
+ *         already happened
  */
 export function registerPlugin(): boolean {
     if (registered) {
@@ -74,17 +80,22 @@ export function enablePlugin(): void {
 }
 
 /**
- * Installs the tracing hooks into @imqueue/rpc.
+ * Installs the tracing hooks into `@imqueue/rpc`.
  *
  * The hooks land on the default client and service options, so every client and
  * service created afterwards is traced without touching application code. This
  * deliberately does not use dd-trace's automatic module patching: that path
- * needs the tracer loaded before @imqueue/rpc, which cannot be guaranteed for
+ * needs the tracer loaded before `@imqueue/rpc`, which cannot be guaranteed for
  * an ESM application, whereas the default options are read when a client or
  * service is constructed — always after this call.
  *
- * @return {Promise<boolean>} - whether the hooks were installed, which is
- *         `false` when they had already been installed earlier
+ * @remarks
+ * Called for you at import time, so applications never need it. Note what the
+ * timing implies: a client or service constructed BEFORE this ran copied the
+ * un-hooked defaults and is not traced.
+ *
+ * @returns `true` if this call installed the hooks, `false` if they were
+ * already installed
  */
 export async function instrument(): Promise<boolean> {
     if (instrumented) {

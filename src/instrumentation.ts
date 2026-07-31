@@ -35,12 +35,22 @@ import {
 export const CARRIER_KEY = 'clientSpan';
 
 /**
- * The pair of hooks @imqueue/rpc invokes around a call. Structurally equal to
+ * The pair of hooks `@imqueue/rpc` invokes around a call. Structurally equal to
  * `IMQBeforeCall`/`IMQAfterCall`, but expressed without a type parameter so the
  * same shape works for both client and service option objects.
  */
 export interface CallHooks {
+    /**
+     * Runs before the call. Builds the call context, attaches it to the
+     * request, and publishes the `start` event. Returns immediately when the
+     * channel has no subscribers.
+     */
     beforeCall: (req?: IMQRPCRequest, res?: any) => Promise<void>;
+
+    /**
+     * Runs after the call. Publishes `error` when the response carries one,
+     * then always publishes `finish` so the span is closed either way.
+     */
     afterCall: (req?: IMQRPCRequest, res?: any) => Promise<void>;
 }
 
@@ -67,8 +77,8 @@ interface Channels {
  * there. `metadata` is an `IMQMetadata` instance whose properties are plain
  * JSON, so the carrier survives serialization as an ordinary object.
  *
- * @param {IMQRPCRequest} req - request to read from
- * @return {Record<string, string> | undefined}
+ * @param req - request to read from
+ * @returns the carrier, or nothing when the caller propagated no context
  */
 function readCarrier(req: IMQRPCRequest): Record<string, string> | undefined {
     const carrier = (req.metadata as any)?.[CARRIER_KEY];
@@ -80,8 +90,8 @@ function readCarrier(req: IMQRPCRequest): Record<string, string> | undefined {
  * Attaches a fresh, empty carrier to a request for the client to inject the
  * current trace context into.
  *
- * @param {IMQRPCRequest} req - request to extend
- * @return {Record<string, string>}
+ * @param req - request to extend
+ * @returns the empty carrier just attached
  */
 function createCarrier(req: IMQRPCRequest): Record<string, string> {
     const metadata: any = (req as any).metadata || ((req as any).metadata = {});
@@ -96,7 +106,7 @@ function createCarrier(req: IMQRPCRequest): Record<string, string> {
  * Keeps the request serializable: the span object hanging off the context must
  * never reach the queue.
  *
- * @param {IMQRPCRequest} req - request to guard
+ * @param req - request to guard
  */
 function hideContextFromJson(req: IMQRPCRequest): void {
     if (typeof (req as any).toJSON === 'function') {
@@ -116,12 +126,12 @@ function hideContextFromJson(req: IMQRPCRequest): void {
 /**
  * Builds the hook pair publishing on the given channels.
  *
- * @param {Channels} channels - channels of the traced operation
- * @param {(req: IMQRPCRequest, self: any) => string} serviceNameOf - resolves
- *        the service name to report, given the request and the hook's `this`
- * @param {boolean} injects - whether the hooks should create a carrier for the
- *        trace context (client) or read the one already present (server)
- * @return {CallHooks}
+ * @param channels - channels of the traced operation
+ * @param serviceNameOf - resolves the service name to report, given the request
+ *         and the hook's `this`
+ * @param injects - whether the hooks should create a carrier for the trace
+ *         context (client) or read the one already present (server)
+ * @returns the hook pair to install
  */
 function createHooks(
     channels: Channels,
@@ -177,16 +187,17 @@ function createHooks(
 }
 
 /**
- * Installs the hooks into an @imqueue/rpc default options object.
+ * Installs the hooks into an `@imqueue/rpc` default options object.
  *
  * Hooks the user configured themselves are preserved and invoked after the
- * tracing ones, so enabling tracing never silently drops application
- * behaviour. Calling this twice on the same object is a no-op.
+ * tracing ones, so enabling tracing never silently drops application behaviour.
+ * Calling this twice on the same object is a no-op.
  *
- * @param {any} options - `DEFAULT_IMQ_CLIENT_OPTIONS` or
- *        `DEFAULT_IMQ_SERVICE_OPTIONS`
- * @param {CallHooks} hooks - hooks to install
- * @return {boolean} - whether anything was installed
+ * @param options - `DEFAULT_IMQ_CLIENT_OPTIONS` or
+ * `DEFAULT_IMQ_SERVICE_OPTIONS`
+ * @param hooks - hooks to install
+ * @returns `true` if this call installed them, `false` if the object was
+ *         already instrumented
  */
 export function installHooks(options: any, hooks: CallHooks): boolean {
     if (!options || options[PATCHED]) {
@@ -224,9 +235,9 @@ export const serverHooks: CallHooks = createHooks(
 );
 
 /**
- * Hooks tracing outgoing calls, injecting the current context into the
- * request. `this` is the `IMQClient` instance, whose `serviceName` names the
- * service being called.
+ * Hooks tracing outgoing calls, injecting the current context into the request.
+ * `this` is the `IMQClient` instance, whose `serviceName` names the service
+ * being called.
  */
 export const clientHooks: CallHooks = createHooks(
     clientChannels,

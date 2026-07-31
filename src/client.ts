@@ -25,24 +25,41 @@ import { CLIENT_OPERATION, IMQ_COMPONENT, ImqCallContext } from './channels.js';
 import { TracingPlugin } from './internals.js';
 
 /**
- * Traces outgoing @imqueue RPC calls.
+ * Traces outgoing `@imqueue` RPC calls — the CLIENT half of the `imq`
+ * integration, producing the `imq.request` span.
  *
+ * @remarks
  * Subscribes to `apm:imq:request:{start,error,finish}` — the channels the
  * instrumentation in `./instrumentation` publishes from the client's
  * `beforeCall`/`afterCall` hooks.
+ *
+ * Instantiated by the tracer through {@link ImqPlugin}, not directly. Switch it
+ * off with `tracer.use('imq', { client: false })`.
  */
 export class ImqClientPlugin extends TracingPlugin {
+    /** Integration this plugin belongs to, `'imq'`. */
     public static id = IMQ_COMPONENT;
+
+    /** Component tag reported on every span, `'imq'`. */
     public static component = IMQ_COMPONENT;
+
+    /**
+     * Operation half, `'request'` — the middle segment of the
+     * `apm:imq:request:*` channels this subscribes to.
+     */
     public static operation = CLIENT_OPERATION;
+
+    /** Datadog span kind: this half issues calls. */
     public static kind = 'client';
+
+    /** Datadog span type — RPC over a queue is messaging. */
     public static type = 'messaging';
 
     /**
      * Starts the span for an outgoing call and injects the trace context into
      * the carrier so the handling service can continue the trace.
      *
-     * @param {ImqCallContext} ctx - call being started
+     * @param ctx - call being started; the created span is stored on it
      */
     public start(ctx: ImqCallContext): void {
         // `false` keeps the span out of the async-local store on purpose: a
@@ -70,7 +87,7 @@ export class ImqClientPlugin extends TracingPlugin {
      * Marks the span as failed. The span itself is finished by `finish()`,
      * which the instrumentation always publishes.
      *
-     * @param {ImqCallContext} ctx - call that failed
+     * @param ctx - call that failed; carries the error in `ctx.error`
      */
     public error(ctx: ImqCallContext): void {
         ctx.span?.setTag(tags.ERROR, ctx.error);
@@ -79,7 +96,7 @@ export class ImqClientPlugin extends TracingPlugin {
     /**
      * Finishes the span of a completed call.
      *
-     * @param {ImqCallContext} ctx - call that completed
+     * @param ctx - call that completed
      */
     public finish(ctx: ImqCallContext): void {
         ctx.span?.finish();

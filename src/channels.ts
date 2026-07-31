@@ -30,7 +30,18 @@ const require = createRequire(import.meta.url);
  * object the tracer's plugins subscribe to.
  */
 export interface DDChannel {
+    /**
+     * Whether anything is listening. Checked before building a call context, so
+     * that a process with tracing disabled pays nothing per RPC beyond this
+     * read.
+     */
     readonly hasSubscribers: boolean;
+
+    /**
+     * Publishes an event to the subscribed plugins. Synchronous: subscribers
+     * run before this returns, which is what lets a plugin attach its span to
+     * the context the caller is about to use.
+     */
     publish(ctx: unknown): void;
 }
 

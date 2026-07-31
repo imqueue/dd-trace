@@ -26,16 +26,32 @@ import { ImqServerPlugin } from './server.js';
 
 /**
  * The `imq` integration, grouping both halves of an RPC call under a single
- * name so that they share configuration and can be switched independently:
+ * name so that they share configuration and can be switched independently.
  *
- * ~~~typescript
- * tracer.use('imq', { client: false });    // trace incoming calls only
- * tracer.use('imq', { service: 'my-api' }) // applies to both halves
- * ~~~
+ * @remarks
+ * This is what `tracer.use('imq', ...)` addresses. Being a composite, an option
+ * given without a half applies to both, while `client` and `server` target one
+ * each:
+ *
+ * ```typescript
+ * tracer.use('imq', { client: false });     // trace incoming calls only
+ * tracer.use('imq', { service: 'my-api' }); // applies to both halves
+ * ```
+ *
+ * Registered with the tracer automatically when this package is imported; there
+ * is no reason to instantiate it yourself.
  */
 export class ImqPlugin extends CompositePlugin {
+    /**
+     * Integration name, `'imq'` — the string to pass to `tracer.use()` and the
+     * key of the `DD_TRACE_IMQ_ENABLED` environment switch.
+     */
     public static id = IMQ_COMPONENT;
 
+    /**
+     * The two halves this integration is composed of, which is what makes
+     * `{ client: false }` and `{ server: false }` valid options.
+     */
     public static get plugins() {
         return {
             client: ImqClientPlugin,
