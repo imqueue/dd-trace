@@ -34,9 +34,9 @@ jobs:
     permissions:
       contents: write
     with:
-      package: '@imqueue/dd-trace'
+      package: '@imqueue/datadog'
       tag: ${{ inputs.tag || '' }}
       dry-run: ${{ inputs.dry-run || false }}
       blurb: >-
-        `@imqueue/dd-trace` — Integration package with Datadog tracing for @imqueue. Part of the
+        `@imqueue/datadog` — Integration package with Datadog tracing for @imqueue. Part of the
         @imqueue framework for Node.js & TypeScript microservices.

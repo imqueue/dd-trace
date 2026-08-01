@@ -1,8 +1,59 @@
 # Changelog
 
-Notable changes to `@imqueue/dd-trace`.
+Notable changes to `@imqueue/datadog`.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [3.2.0] - 2026-08-01
+
+The package is renamed from `@imqueue/dd-trace` to `@imqueue/datadog`. No export
+changed name or signature, and — deliberately — nothing Datadog sees changed
+either. The migration is the dependency and the import specifiers.
+
+`@imqueue/dd-trace` is deprecated on npm and will receive no further releases.
+There is no compatibility shim: 3.1.0, the last version published under the old
+name, stays installable indefinitely and stays frozen.
+
+### Changed
+
+- **Renamed on npm.** `npm i @imqueue/datadog`, and update every import
+  specifier. `dd-trace` named Datadog's own tracer, which this package wraps and
+  depends on at `^6.6.0`, so `@imqueue/dd-trace` sitting next to `dd-trace` in a
+  dependency list said very little about which was which. `datadog` says what the
+  integration is for. The `dd-trace` keyword is kept so a search for the old name
+  still finds it.
+
+- **`repository.url`** points at `github.com/imqueue/datadog` and moves off the
+  `git://` scheme GitHub disabled in 2022; **`bugs.url`** follows.
+
+### Unchanged, on purpose
+
+- **Everything Datadog sees.** The integration is still addressed as
+  `tracer.use('imq', …)`, span names are still `imq.request` and `imq.response`,
+  the component tag is still `imq`, the channel prefix is still `apm:imq:*`, and
+  the kill switch is still `DD_TRACE_IMQ_ENABLED`. Dashboards, monitors and
+  saved queries need no changes.
+
+- **`CALL_CONTEXT` is still `Symbol.for('@imqueue/dd-trace:context')`** and the
+  internal patch marker is still `__imqueueDdTracePatched`. Both are
+  process-global identifiers, and `CALL_CONTEXT` is exported public API. Freezing
+  them is what lets this package and a still-installed `@imqueue/dd-trace`
+  recognise each other during a partial migration instead of double-patching the
+  shared `@imqueue/rpc` option singletons or dropping spans on the floor. Same
+  reasoning as `CARRIER_KEY`, frozen since 3.0.0.
+
+  Even so, do not run both packages in one process. They patch the same
+  singletons, and only one set of hooks can be the live one.
+
+### Added
+
+- **`publishConfig.access`**, so a first publish under a new scoped name cannot
+  land as a restricted package.
+
+- **`.github/workflows/build.yml`.** This was the only package of the three
+  renamed in this wave with no build workflow, so nothing ran lint or tests on a
+  tag push — the release path was `prepublishOnly: npm run build`, which compiles
+  and never tests.
 
 ## [3.0.1] - 2026-07-26
 

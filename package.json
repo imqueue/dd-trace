@@ -1,15 +1,22 @@
 {
-  "name": "@imqueue/dd-trace",
+  "name": "@imqueue/datadog",
   "version": "3.1.0",
   "type": "module",
-  "description": "Integration package with Datadog tracing for @imqueue",
+  "description": "Datadog APM tracing for @imqueue microservices — an unofficial community integration that drop-in replaces Datadog's own dd-trace package and traces every RPC",
   "keywords": [
     "dd-trace",
     "trace",
     "tracing",
     "datadog",
+    "apm",
+    "imqueue",
+    "imq",
+    "rpc",
     "integration"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "prepublishOnly": "npm run build",
     "clean:dts": "find . -name '*.d.ts' -not -wholename '*node_modules*' -type f -delete",
@@ -33,10 +40,10 @@
   "license": "GPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git://github.com/imqueue/dd-trace.git"
+    "url": "git+https://github.com/imqueue/datadog.git"
   },
   "bugs": {
-    "url": "https://github.com/imqueue/dd-trace/issues"
+    "url": "https://github.com/imqueue/datadog/issues"
   },
   "homepage": "https://imqueue.org/",
   "dependencies": {

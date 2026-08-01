@@ -28,7 +28,7 @@
  * `imq.response` span on the handling side, linked into one trace:
  *
  * ```typescript
- * import tracer from '@imqueue/dd-trace';
+ * import tracer from '@imqueue/datadog';
  *
  * tracer.init();
  *
@@ -140,7 +140,7 @@ const traces: { [name: string]: Span } = {};
  *
  * @example
  * ```typescript
- * import { trace, traceEnd } from '@imqueue/dd-trace';
+ * import { trace, traceEnd } from '@imqueue/datadog';
  *
  * trace('import-batch', { 'batch.source': 'nightly' });
  *
@@ -257,7 +257,7 @@ try {
  *
  * @example
  * ```typescript
- * import { traced, TraceKind } from '@imqueue/dd-trace';
+ * import { traced, TraceKind } from '@imqueue/datadog';
  *
  * class Reports {
  *     @traced()

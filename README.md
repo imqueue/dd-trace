@@ -1,4 +1,4 @@
-<h1 align="center">@imqueue/dd-trace</h1>
+<h1 align="center">@imqueue/datadog</h1>
 <hr>
 <p align="center">
     <strong>Integration package with Datadog tracing for @imqueue</strong>
@@ -12,12 +12,31 @@ This library provides a clean way to integrate
 [Datadog](https://www.datadoghq.com/) 
 [tracing](https://www.npmjs.com/package/dd-trace).
 
+## Renamed
+
+This package was called `@imqueue/dd-trace` up to and including 3.1.0. The old
+name is deprecated on npm and receives no further releases; there is no
+compatibility shim. To migrate, change the dependency and every import specifier.
+
+Nothing Datadog sees changed: the integration is still `tracer.use('imq', …)`,
+spans are still `imq.request` and `imq.response`, the component tag is still
+`imq`, and `DD_TRACE_IMQ_ENABLED` still switches it off. Your dashboards and
+monitors keep working untouched.
+
+Do not install both packages at once — they patch the same `@imqueue/rpc` option
+singletons, so only one set of hooks can be live.
+
+`@imqueue/datadog` is an unofficial community integration. It is not published by
+or affiliated with Datadog, Inc.; `dd-trace` below refers to
+[Datadog's own tracer](https://www.npmjs.com/package/dd-trace), which this
+package wraps.
+
 ## Install
 
 As easy as:
 
 ~~~bash
-npm i --save @imqueue/dd-trace
+npm i --save @imqueue/datadog
 ~~~ 
 
 This package is an ES module, as is `@imqueue/rpc` from version 3 on, so it is
@@ -30,7 +49,7 @@ imported and not `require`d. It needs `@imqueue/rpc` 3.x and `dd-trace` 6.x.
 At the top of your entry file (service or client):
 
 ~~~typescript
-import tracer  from '@imqueue/dd-trace';
+import tracer  from '@imqueue/datadog';
 tracer.init();
 export default tracer;
 ~~~
@@ -75,14 +94,14 @@ export DISABLE_DD_SELF_TRACES=1
 This option will disable datadog agent to trace it's own HTTP calls about
 traces, but still keeping http/https requests to other domains to be traced.
 
-Withing the package `@imqueue/dd-trace` provides also some valuable
+Withing the package `@imqueue/datadog` provides also some valuable
 functions, giving the ability to instrument and send traces manually inside
 your code.
 
 For example, if you need to trace some specific block of code, do it as:
 
 ~~~typescript
-import { trace, traceEnd } from '@imqueue/dd-trace';
+import { trace, traceEnd } from '@imqueue/datadog';
 
 // ... whenever you want to trace a block of code do as:
 
@@ -102,7 +121,7 @@ using `@traced()` decorator factory.
 For example:
 
 ~~~typescript
-import { traced } from '@imqueue/dd-trace';
+import { traced } from '@imqueue/datadog';
 
 class MySpecificClassOrService {
 
@@ -132,7 +151,7 @@ With this example, only `doSomething`, `doAnotherThing` and `doCoolStuff`
 methods will be traced, but `doHidden` remain un-traced.
 
 Please, note, that every method on client and server, which are decorated
-with `@expose` will be automatically traced if `@imqueue/dd-trace` was set-up
+with `@expose` will be automatically traced if `@imqueue/datadog` was set-up
 and initialized (and enabled via DD trace env config). Plugin name for 
 DD trace config is `imq`.
 

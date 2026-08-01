@@ -54,13 +54,38 @@ export interface CallHooks {
     afterCall: (req?: IMQRPCRequest, res?: any) => Promise<void>;
 }
 
-/** Marker telling an already instrumented options object from a fresh one. */
+/**
+ * Marker telling an already instrumented options object from a fresh one.
+ *
+ * @remarks
+ * Deliberately still says `DdTrace` after the package was renamed to
+ * `@imqueue/datadog`, for the same reason {@link CARRIER_KEY} is frozen. It is
+ * the ONLY guard against patching `@imqueue/rpc`'s shared default-option
+ * singletons twice, and a dependency tree can hold both this package and the
+ * retired `@imqueue/dd-trace` at once — that is what a half-finished migration
+ * looks like. Matching markers make the second copy no-op; differing ones let
+ * both install, and `installHooks()` chains onto the existing function, so the
+ * tracing hook wraps itself: two spans per call, every application hook run
+ * twice, and nothing thrown.
+ */
 const PATCHED = '__imqueueDdTracePatched';
 
 /**
  * Property an in-flight call's context is kept under, on the request itself, so
  * that `afterCall` can finish the span `beforeCall` started. Never serialized,
  * see `hideContextFromJson()`.
+ *
+ * @remarks
+ * The string deliberately keeps the retired `@imqueue/dd-trace` name.
+ * `Symbol.for` looks up the PROCESS-GLOBAL symbol registry, so the literal is
+ * the handle by which one copy of this package hands a call context to another
+ * — and it is exported, so third-party code can rebuild it with its own
+ * `Symbol.for` call to read the in-flight span off a request. Changing it would
+ * mean a `beforeCall` storing under one key while an `afterCall` reads another:
+ * `afterCall` returns early, `span.finish()` never runs, and the span is
+ * dropped. That failure is worse than a crash — no error anywhere, the traces
+ * simply go quiet — and the generated declaration types this as a plain
+ * `symbol`, so no consumer would get a compile error either.
  */
 export const CALL_CONTEXT = Symbol.for('@imqueue/dd-trace:context');
 

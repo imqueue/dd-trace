@@ -43,7 +43,7 @@ import { pluginRegistry } from '../src/internals.js';
  */
 const tracer = (await import('../index.js')).default;
 
-tracer.init({ service: 'imq-dd-trace-test', startupLogs: false } as any);
+tracer.init({ service: 'imq-datadog-test', startupLogs: false } as any);
 
 /**
  * Builds a request as @imqueue/rpc would hand it to the hooks.
@@ -70,7 +70,7 @@ function contextOf(req: IMQRPCRequest): ImqCallContext {
     return (req as any)[CALL_CONTEXT];
 }
 
-describe('@imqueue/dd-trace', () => {
+describe('@imqueue/datadog', () => {
     describe('plugin registration', () => {
         it('should register the composite plugin under the traced package ' +
             'name', () => {
