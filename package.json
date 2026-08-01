@@ -1,6 +1,6 @@
 {
   "name": "@imqueue/datadog",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "type": "module",
   "description": "Datadog APM tracing for @imqueue microservices — an unofficial community integration that drop-in replaces Datadog's own dd-trace package and traces every RPC",
   "keywords": [
